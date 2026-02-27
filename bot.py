@@ -1810,7 +1810,7 @@ def home():
                 </div>
             </div>
 
-            <a href="https://t.me/your_bot_username" class="btn-telegram" target="_blank">
+            <a href="https://t.me/Advancesvouts_bot" class="btn-telegram" target="_blank">
                 <i class="fab fa-telegram-plane"></i>
                 OPEN TELEGRAM BOT
             </a>
