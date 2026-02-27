@@ -16,7 +16,6 @@ import select
 import json
 import time
 import signal
-import shlex
 import psutil
 import subprocess
 from datetime import datetime, timedelta
@@ -28,12 +27,12 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 # ========== CONFIGURATION ==========
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-MAIN_ADMIN_ID = int(os.environ.get("MAIN_ADMIN_ID", 0))
-PORT = int(os.environ.get("PORT", 9090))
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+MAIN_ADMIN_ID = int(os.environ.get("MAIN_ADMIN_ID", "0"))
+PORT = int(os.environ.get("PORT", 10000))
 BASE_DIR = os.getcwd()
 DATA_FILE = "bot_data.json"
-USER_DATA_DIR = os.path.join(BASE_DIR, "data", "users")
+USER_DATA_DIR = os.path.join(BASE_DIR, "user_data")
 LOG_FILE = "bot.log"
 MAX_LOG_SIZE = 5 * 1024 * 1024  # 5MB
 BACKUP_COUNT = 3
@@ -59,7 +58,7 @@ logger = logging.getLogger(__name__)
 
 print("🔧 Configuration loaded:")
 print(f"   PORT: {PORT}")
-print(f"   BOT_TOKEN present: {'Yes' if BOT_TOKEN else 'No'}")
+print(f"   BOT_TOKEN present: {'Yes' if BOT_TOKEN != 'YOUR_BOT_TOKEN_HERE' else 'No'}")
 print(f"   MAIN_ADMIN_ID: {MAIN_ADMIN_ID}")
 print(f"   USER_DATA_DIR: {USER_DATA_DIR}")
 
@@ -76,6 +75,7 @@ admins = set()
 user_stats = {}  # Track user usage stats
 system_alerts = []  # Store system alerts
 MAX_ALERTS = 50
+authorized_users = set()  # All users who can use basic features
 
 # ========== HELPER FUNCTIONS ==========
 def get_user_directory(user_id):
@@ -87,6 +87,10 @@ def get_user_directory(user_id):
 def is_admin(user_id):
     """Check if user is admin"""
     return str(user_id) == str(MAIN_ADMIN_ID) or user_id in admins
+
+def is_authorized(user_id):
+    """Check if user is authorized (all users are authorized now)"""
+    return True  # All users can use basic features
 
 def sanitize_path(user_id, path):
     """Ensure path is within user's directory and prevent path traversal"""
@@ -178,32 +182,50 @@ def add_system_alert(alert_type, message):
 
 def load_data():
     """Load bot data from file"""
-    global admins, user_stats
+    global admins, user_stats, authorized_users
     try:
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE, 'r') as f:
                 data = json.load(f)
                 admins = set(data.get('admins', []))
                 user_stats = data.get('user_stats', {})
+                authorized_users = set(data.get('authorized_users', []))
         admins.add(MAIN_ADMIN_ID)
-        logger.info(f"Data loaded. Admins: {len(admins)}")
+        logger.info(f"Data loaded. Admins: {len(admins)}, Authorized users: {len(authorized_users)}")
     except Exception as e:
         logger.error(f"⚠️ Load data failed: {e}")
         admins = {MAIN_ADMIN_ID}
         user_stats = {}
+        authorized_users = set()
 
 def save_data():
     """Save bot data to file"""
     try:
         data = {
             'admins': list(admins),
-            'user_stats': user_stats
+            'user_stats': user_stats,
+            'authorized_users': list(authorized_users)
         }
         with open(DATA_FILE, 'w') as f:
             json.dump(data, f, indent=2)
         logger.info("Data saved successfully")
     except Exception as e:
         logger.error(f"⚠️ Save data failed: {e}")
+
+def update_user_stats(user_id, username):
+    """Update user statistics"""
+    user_id_str = str(user_id)
+    if user_id_str not in user_stats:
+        user_stats[user_id_str] = {
+            'commands': 0,
+            'first_seen': datetime.now().isoformat(),
+            'username': username,
+            'user_id': user_id
+        }
+    user_stats[user_id_str]['commands'] += 1
+    user_stats[user_id_str]['last_seen'] = datetime.now().isoformat()
+    user_stats[user_id_str]['username'] = username
+    save_data()
 
 def run_cmd(cmd, user_id, chat_id, session_id):
     """Run command in isolated PTY for specific user"""
@@ -215,21 +237,11 @@ def run_cmd(cmd, user_id, chat_id, session_id):
             
             user_dir = get_user_directory(user_id)
             
-            # Update user stats
-            if str(user_id) not in user_stats:
-                user_stats[str(user_id)] = {
-                    'commands': 0,
-                    'first_seen': datetime.now().isoformat(),
-                    'last_seen': datetime.now().isoformat()
-                }
-            user_stats[str(user_id)]['commands'] += 1
-            user_stats[str(user_id)]['last_seen'] = datetime.now().isoformat()
-            save_data()
-            
             pid, fd = pty.fork()
             if pid == 0:
                 # Child process
                 os.chdir(user_dir)
+                # Use bash -c to execute the command
                 os.execvp("bash", ["bash", "-c", cmd])
             else:
                 # Parent process
@@ -250,15 +262,15 @@ def run_cmd(cmd, user_id, chat_id, session_id):
                                 # Split long output into chunks
                                 for i in range(0, len(out), 3500):
                                     chunk = out[i:i+3500]
-                                    display_out = chunk if len(chunk) < 3500 else chunk[:3500] + "\n... [OUTPUT TRUNCATED]"
                                     try:
-                                        bot.send_message(chat_id, f"```\n{display_out}\n```", parse_mode="Markdown")
+                                        bot.send_message(chat_id, f"```\n{chunk}\n```", parse_mode="Markdown")
                                     except Exception as e:
                                         logger.error(f"Error sending message: {e}")
 
                             if out.strip().endswith(":"):
                                 input_dict[session_id] = fd
 
+                        # Check if process is still alive
                         try:
                             os.kill(pid, 0)
                         except OSError:
@@ -290,17 +302,24 @@ def run_cmd(cmd, user_id, chat_id, session_id):
     threading.Thread(target=task, daemon=True).start()
 
 # ========== KEYBOARDS ==========
-def main_menu_keyboard():
+def main_menu_keyboard(is_admin_user=False):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(
+    
+    # Basic commands for all users
+    buttons = [
         "📁 ls -la", "📂 pwd",
         "💿 df -h", "📊 system stats",
         "📝 nano", "🛑 stop",
-        "📜 ps aux | head -20", "🗑️ clear",
-        "🔄 ping 8.8.8.8 -c 4", "🌐 ifconfig",
-        "📈 htop", "🔍 netstat -tulpn",
-        "📁 my files", "ℹ️ my info"
-    )
+        "🗑️ clear", "📁 my files",
+        "ℹ️ my info", "📜 ps aux | head -20",
+        "🌐 ifconfig", "🔄 ping 8.8.8.8 -c 4"
+    ]
+    
+    # Add admin-only buttons if user is admin
+    if is_admin_user:
+        buttons.extend(["👑 admin panel", "📈 performance"])
+    
+    markup.add(*buttons)
     return markup
 
 def admin_keyboard():
@@ -315,8 +334,9 @@ def admin_keyboard():
         types.InlineKeyboardButton("🗑️ Clean Logs", callback_data="clean_logs"),
         types.InlineKeyboardButton("📊 User Stats", callback_data="user_stats"),
         types.InlineKeyboardButton("⚠️ System Alerts", callback_data="system_alerts"),
-        types.InlineKeyboardButton("🔄 Restart Bot", callback_data="restart_bot"),
-        types.InlineKeyboardButton("📈 Performance", callback_data="performance")
+        types.InlineKeyboardButton("📈 Performance", callback_data="performance"),
+        types.InlineKeyboardButton("👥 Authorize User", callback_data="authorize_user"),
+        types.InlineKeyboardButton("🚫 Deauthorize User", callback_data="deauthorize_user")
     )
     return markup
 
@@ -325,11 +345,11 @@ def admin_keyboard():
 def start(m):
     cid = m.chat.id
     username = m.from_user.username or "Unknown"
+    first_name = m.from_user.first_name or "User"
     
-    if not is_admin(cid):
-        bot.send_message(cid, "❌ You are not authorized to use this bot.")
-        logger.warning(f"Unauthorized access attempt from {cid} ({username})")
-        return
+    # Always allow /start command
+    authorized_users.add(cid)
+    update_user_stats(cid, username)
     
     # Get system stats
     stats = get_system_stats()
@@ -339,41 +359,68 @@ def start(m):
       🤖 𝚃𝙷𝙰𝚁𝙼𝚄𝚇 𝙱𝙾𝚃 𝙿𝚁𝙾 𝚅𝟻.𝟶 🖥️
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-👋 Welcome, @{username}!
+👋 Hello, {first_name}!
 
-📊 𝗦𝗬𝗦𝗧𝗘𝗠 𝗠𝗢𝗡𝗜𝗧𝗢𝗥
+📊 𝗦𝗬𝗦𝗧𝗘𝗠 𝗦𝗧𝗔𝗧𝗨𝗦
 ──────────────────
 🖥️  CPU    : {stats['cpu_bar']}  {stats['cpu']:.1f}%
 💾  Memory : {stats['memory_bar']}  {stats['memory']:.1f}%
 💿  Disk   : {stats['disk_bar']}  {stats['disk']:.1f}%
 
-⏱️  Uptime  : {stats['uptime']}
-🔄  Processes: {stats['processes']}
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 𝗙𝗘𝗔𝗧𝗨𝗥𝗘𝗦:
-• 🖥️ Execute shell commands
-• ✏️ Nano editor with web interface
-• 📊 Real-time system monitoring
-• 👑 Multi-user admin system
-• 📁 File browser & manager
-• 📈 Performance tracking
+📌 𝗔𝗩𝗔𝗜𝗟𝗔𝗕𝗟𝗘 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦:
+• Type any Linux command directly
+• Use buttons below for quick commands
+• /nano filename - Edit files in browser
+• /help - Show help
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💡 Use buttons below or type commands directly!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
     bot.send_message(cid, welcome_msg, 
                      parse_mode="Markdown", 
-                     reply_markup=main_menu_keyboard())
+                     reply_markup=main_menu_keyboard(is_admin(cid)))
     
     logger.info(f"User {cid} ({username}) started the bot")
+
+@bot.message_handler(commands=["help"])
+def help_cmd(m):
+    cid = m.chat.id
+    username = m.from_user.username or "Unknown"
+    
+    help_msg = """
+📚 *HELP & COMMANDS*
+━━━━━━━━━━━━━━━━━━━━━━
+
+🖥️ *BASIC COMMANDS*
+• Type any Linux command directly
+• Use buttons for quick commands
+• /start - Restart bot
+• /help - Show this help
+
+📝 *FILE EDITING*
+• /nano filename - Edit files in browser
+• View files in your private directory
+• Save changes from web interface
+
+📊 *SYSTEM INFO*
+• system stats - View system status
+• my files - List your files
+• my info - Your user info
+
+👑 *ADMIN COMMANDS* (Admins only)
+• /admin - Open admin panel
+• /status - Detailed system status
+• /sessions - View active sessions
+
+━━━━━━━━━━━━━━━━━━━━━━
+"""
+    bot.send_message(cid, help_msg, parse_mode="Markdown")
 
 @bot.message_handler(commands=["admin"])
 def admin_panel(m):
     cid = m.chat.id
-    if str(cid) != str(MAIN_ADMIN_ID):
-        bot.send_message(cid, "❌ Only main admin can access this panel.")
+    if not is_admin(cid):
+        bot.send_message(cid, "❌ This command is for admins only!")
         return
     
     bot.send_message(cid, "🔐 *ADMIN CONTROL PANEL*", 
@@ -384,7 +431,7 @@ def admin_panel(m):
 def status_cmd(m):
     cid = m.chat.id
     if not is_admin(cid):
-        bot.send_message(cid, "❌ Not authorized!")
+        bot.send_message(cid, "❌ This command is for admins only!")
         return
     
     stats = get_system_stats()
@@ -417,17 +464,7 @@ Disk   : {stats['disk_bar']}  {stats['disk']:.1f}%
 • Running Processes : `{total_processes}`
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 𝗔𝗖𝗧𝗜𝗩𝗘 𝗣𝗥𝗢𝗖𝗘𝗦𝗦𝗘𝗦 𝗕𝗬 𝗨𝗦𝗘𝗥:
 """
-
-    for user_id, procs in processes.items():
-        if procs:
-            status_msg += f"\n👤 User {user_id}: {len(procs)} process(es)"
-    
-    if not any(processes.values()):
-        status_msg += "\n\n📭 No active processes"
-    
-    status_msg += "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     bot.send_message(cid, status_msg, parse_mode="Markdown")
 
@@ -457,8 +494,8 @@ def sessions_cmd(m):
 @bot.message_handler(commands=["stop"])
 def stop_cmd(m):
     cid = m.chat.id
-    if not is_admin(cid):
-        bot.send_message(cid, "❌ Not authorized!")
+    if not is_authorized(cid):
+        bot.send_message(cid, "❌ Please /start the bot first!")
         return
     
     proc_dict = get_user_dict(cid, processes)
@@ -499,8 +536,8 @@ def stop_cmd(m):
 @bot.message_handler(commands=["nano"])
 def nano_cmd(m):
     cid = m.chat.id
-    if not is_admin(cid):
-        bot.send_message(cid, "❌ Not authorized!")
+    if not is_authorized(cid):
+        bot.send_message(cid, "❌ Please /start the bot first!")
         return
 
     args = m.text.strip().split(maxsplit=1)
@@ -539,7 +576,7 @@ def nano_cmd(m):
             edit_sessions.pop(sess_id, None)
 
     # Get base URL from environment or use default
-    BASE_URL = os.environ.get("BASE_URL", f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'localhost:9090')}")
+    BASE_URL = os.environ.get("BASE_URL", f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'localhost:10000')}")
     link = f"{BASE_URL}/edit/{sid}"
 
     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -564,11 +601,14 @@ def nano_cmd(m):
 def shell(m):
     cid = m.chat.id
     text = m.text.strip()
+    username = m.from_user.username or "Unknown"
     
-    if not is_admin(cid):
-        bot.send_message(cid, "❌ You are not authorized to use this bot.")
+    if not is_authorized(cid):
+        bot.send_message(cid, "❌ Please /start the bot first!")
         return
 
+    # Update user stats
+    update_user_stats(cid, username)
     get_user_dict(cid, active_sessions)
     
     # Check for input waiting (for interactive commands)
@@ -595,10 +635,10 @@ def shell(m):
         "📝 nano": None,
         "🔄 ping 8.8.8.8 -c 4": "ping -c 4 8.8.8.8",
         "🌐 ifconfig": "ifconfig || ip addr",
-        "📈 htop": "htop -d 10",
-        "🔍 netstat -tulpn": "netstat -tulpn 2>/dev/null || ss -tulpn",
         "📁 my files": None,
-        "ℹ️ my info": None
+        "ℹ️ my info": None,
+        "👑 admin panel": None,
+        "📈 performance": None
     }
     
     if text in quick_map:
@@ -653,14 +693,13 @@ def shell(m):
             return
         elif text == "ℹ️ my info":
             user_dir = get_user_directory(cid)
-            stats = get_system_stats()
             user_data = user_stats.get(str(cid), {})
             
             info_msg = f"""
 ℹ️ *USER INFORMATION*
 ━━━━━━━━━━━━━━━━━━━━━━
 👤 User ID: `{cid}`
-📝 Username: @{m.from_user.username or 'N/A'}
+📝 Username: @{username}
 📁 Directory: `{user_dir}`
 
 📊 *USAGE STATS*
@@ -668,12 +707,21 @@ def shell(m):
 • First seen: {user_data.get('first_seen', 'N/A')[:10]}
 • Last active: {user_data.get('last_seen', 'N/A')[:10]}
 
-🖥️ *SYSTEM SHARE*
-• CPU: {stats['cpu']:.1f}%
-• Memory: {stats['memory']:.1f}%
 ━━━━━━━━━━━━━━━━━━━━━━
 """
             bot.send_message(cid, info_msg, parse_mode="Markdown")
+            return
+        elif text == "👑 admin panel":
+            if is_admin(cid):
+                admin_panel(m)
+            else:
+                bot.send_message(cid, "❌ Admin only feature!")
+            return
+        elif text == "📈 performance":
+            if is_admin(cid):
+                show_performance(cid)
+            else:
+                bot.send_message(cid, "❌ Admin only feature!")
             return
         else:
             text = quick_map[text]
@@ -684,21 +732,64 @@ def shell(m):
     bot.send_message(cid, f"```\n$ {text}\n```", parse_mode="Markdown")
     run_cmd(text, cid, cid, session_id)
 
+def show_performance(cid):
+    """Show performance metrics"""
+    stats = get_system_stats()
+    
+    # Get process list
+    processes_list = []
+    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
+        try:
+            processes_list.append(proc.info)
+        except:
+            pass
+    
+    # Sort by CPU usage
+    processes_list.sort(key=lambda x: x['cpu_percent'], reverse=True)
+    
+    perf_msg = f"""
+📈 *PERFORMANCE METRICS*
+━━━━━━━━━━━━━━━━━━━━━━
+
+🖥️ *CPU*
+• Usage: {stats['cpu']:.1f}%
+• Cores: {psutil.cpu_count()}
+
+💾 *MEMORY*
+• Total: {psutil.virtual_memory().total / (1024**3):.1f} GB
+• Used: {psutil.virtual_memory().used / (1024**3):.1f} GB
+• Available: {psutil.virtual_memory().available / (1024**3):.1f} GB
+
+💿 *DISK*
+• Total: {psutil.disk_usage('/').total / (1024**3):.1f} GB
+• Used: {psutil.disk_usage('/').used / (1024**3):.1f} GB
+• Free: {psutil.disk_usage('/').free / (1024**3):.1f} GB
+
+🔝 *TOP PROCESSES*
+"""
+    
+    for proc in processes_list[:5]:
+        perf_msg += f"• {proc['name']}: {proc['cpu_percent']:.1f}% CPU, {proc['memory_percent']:.1f}% MEM\n"
+    
+    bot.send_message(cid, perf_msg, parse_mode="Markdown")
+
 # ========== CALLBACK HANDLERS ==========
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     cid = call.message.chat.id
     
-    if not is_admin(cid):
-        bot.answer_callback_query(call.id, "❌ Not authorized!")
-        return
-    
     try:
         if call.data == "status":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
             status_cmd(call.message)
             bot.answer_callback_query(call.id)
         
         elif call.data == "stop_all":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
             if str(cid) != str(MAIN_ADMIN_ID):
                 bot.answer_callback_query(call.id, "❌ Main admin only!")
                 return
@@ -721,6 +812,9 @@ def callback_handler(call):
             add_system_alert("WARNING", f"Admin {cid} stopped all processes")
         
         elif call.data == "admin_list":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
             if str(cid) != str(MAIN_ADMIN_ID):
                 bot.answer_callback_query(call.id, "❌ Main admin only!")
                 return
@@ -732,6 +826,9 @@ def callback_handler(call):
             bot.send_message(cid, f"*ADMIN LIST*\n\n{main_admin_text}\n\n*Other Admins:*\n{admin_list_text if admin_list_text else 'None'}", parse_mode="Markdown")
         
         elif call.data == "add_admin":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
             if str(cid) != str(MAIN_ADMIN_ID):
                 bot.answer_callback_query(call.id, "❌ Main admin only!")
                 return
@@ -741,6 +838,9 @@ def callback_handler(call):
             bot.answer_callback_query(call.id)
         
         elif call.data == "remove_admin":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
             if str(cid) != str(MAIN_ADMIN_ID):
                 bot.answer_callback_query(call.id, "❌ Main admin only!")
                 return
@@ -750,6 +850,10 @@ def callback_handler(call):
             bot.answer_callback_query(call.id)
         
         elif call.data == "list_files":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
+            
             try:
                 user_dir = get_user_directory(cid)
                 files = os.listdir(user_dir)
@@ -775,6 +879,9 @@ def callback_handler(call):
             bot.answer_callback_query(call.id)
         
         elif call.data == "clean_logs":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
             if str(cid) != str(MAIN_ADMIN_ID):
                 bot.answer_callback_query(call.id, "❌ Main admin only!")
                 return
@@ -804,13 +911,16 @@ def callback_handler(call):
             bot.send_message(cid, f"🧹 *Cleanup Complete*\n\n• Removed {cleaned_sessions} stale sessions\n• Removed {cleaned_processes} zombie processes", parse_mode="Markdown")
         
         elif call.data == "user_stats":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
             if str(cid) != str(MAIN_ADMIN_ID):
                 bot.answer_callback_query(call.id, "❌ Main admin only!")
                 return
             
             stats_msg = "*USER STATISTICS*\n\n"
             for user_id, data in user_stats.items():
-                stats_msg += f"👤 User {user_id}:\n"
+                stats_msg += f"👤 User {user_id} (@{data.get('username', 'N/A')}):\n"
                 stats_msg += f"  • Commands: {data.get('commands', 0)}\n"
                 stats_msg += f"  • First seen: {data.get('first_seen', 'N/A')[:10]}\n"
                 stats_msg += f"  • Last seen: {data.get('last_seen', 'N/A')[:10]}\n\n"
@@ -819,6 +929,9 @@ def callback_handler(call):
             bot.answer_callback_query(call.id)
         
         elif call.data == "system_alerts":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
             if str(cid) != str(MAIN_ADMIN_ID):
                 bot.answer_callback_query(call.id, "❌ Main admin only!")
                 return
@@ -834,58 +947,35 @@ def callback_handler(call):
                 bot.send_message(cid, alerts_msg, parse_mode="Markdown")
             bot.answer_callback_query(call.id)
         
-        elif call.data == "restart_bot":
-            if str(cid) != str(MAIN_ADMIN_ID):
-                bot.answer_callback_query(call.id, "❌ Main admin only!")
-                return
-            
-            bot.send_message(cid, "🔄 Restarting bot... (This may take a few seconds)")
-            # In production, you might want to implement actual restart logic
-            bot.answer_callback_query(call.id, "✅ Restart simulated")
-        
         elif call.data == "performance":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
+            show_performance(cid)
+            bot.answer_callback_query(call.id)
+        
+        elif call.data == "authorize_user":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
             if str(cid) != str(MAIN_ADMIN_ID):
                 bot.answer_callback_query(call.id, "❌ Main admin only!")
                 return
             
-            stats = get_system_stats()
+            msg = bot.send_message(cid, "Send the user ID to authorize:")
+            bot.register_next_step_handler(msg, authorize_user_step)
+            bot.answer_callback_query(call.id)
+        
+        elif call.data == "deauthorize_user":
+            if not is_admin(cid):
+                bot.answer_callback_query(call.id, "❌ Not authorized!")
+                return
+            if str(cid) != str(MAIN_ADMIN_ID):
+                bot.answer_callback_query(call.id, "❌ Main admin only!")
+                return
             
-            # Get process list
-            processes_list = []
-            for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
-                try:
-                    processes_list.append(proc.info)
-                except:
-                    pass
-            
-            # Sort by CPU usage
-            processes_list.sort(key=lambda x: x['cpu_percent'], reverse=True)
-            
-            perf_msg = f"""
-📈 *PERFORMANCE METRICS*
-━━━━━━━━━━━━━━━━━━━━━━
-
-🖥️ *CPU*
-• Usage: {stats['cpu']:.1f}%
-• Cores: {psutil.cpu_count()}
-
-💾 *MEMORY*
-• Total: {psutil.virtual_memory().total / (1024**3):.1f} GB
-• Used: {psutil.virtual_memory().used / (1024**3):.1f} GB
-• Available: {psutil.virtual_memory().available / (1024**3):.1f} GB
-
-💿 *DISK*
-• Total: {psutil.disk_usage('/').total / (1024**3):.1f} GB
-• Used: {psutil.disk_usage('/').used / (1024**3):.1f} GB
-• Free: {psutil.disk_usage('/').free / (1024**3):.1f} GB
-
-🔝 *TOP PROCESSES*
-"""
-            
-            for proc in processes_list[:5]:
-                perf_msg += f"• {proc['name']}: {proc['cpu_percent']:.1f}% CPU, {proc['memory_percent']:.1f}% MEM\n"
-            
-            bot.send_message(cid, perf_msg, parse_mode="Markdown")
+            msg = bot.send_message(cid, "Send the user ID to deauthorize:")
+            bot.register_next_step_handler(msg, deauthorize_user_step)
             bot.answer_callback_query(call.id)
         
         elif call.data.startswith("view_"):
@@ -1011,6 +1101,41 @@ def remove_admin_step(m):
             add_system_alert("INFO", f"Removed admin: {admin_id}")
         else:
             bot.send_message(cid, f"❌ Admin ID `{admin_id}` not found.", parse_mode="Markdown")
+    except ValueError:
+        bot.send_message(cid, "❌ Invalid user ID. Please send numeric ID only.")
+    except Exception as e:
+        bot.send_message(cid, f"❌ Error: {e}")
+
+def authorize_user_step(m):
+    cid = m.chat.id
+    if str(cid) != str(MAIN_ADMIN_ID):
+        return
+    
+    try:
+        user_id = int(m.text.strip())
+        authorized_users.add(user_id)
+        save_data()
+        bot.send_message(cid, f"✅ Authorized user: `{user_id}`", parse_mode="Markdown")
+        add_system_alert("INFO", f"Authorized user: {user_id}")
+    except ValueError:
+        bot.send_message(cid, "❌ Invalid user ID. Please send numeric ID only.")
+    except Exception as e:
+        bot.send_message(cid, f"❌ Error: {e}")
+
+def deauthorize_user_step(m):
+    cid = m.chat.id
+    if str(cid) != str(MAIN_ADMIN_ID):
+        return
+    
+    try:
+        user_id = int(m.text.strip())
+        if user_id in authorized_users:
+            authorized_users.remove(user_id)
+            save_data()
+            bot.send_message(cid, f"✅ Deauthorized user: `{user_id}`", parse_mode="Markdown")
+            add_system_alert("INFO", f"Deauthorized user: {user_id}")
+        else:
+            bot.send_message(cid, f"❌ User ID `{user_id}` not found.", parse_mode="Markdown")
     except ValueError:
         bot.send_message(cid, "❌ Invalid user ID. Please send numeric ID only.")
     except Exception as e:
@@ -1685,7 +1810,7 @@ def home():
                 </div>
             </div>
 
-            <a href="https://t.me/Advancesvouts_bot" class="btn-telegram" target="_blank">
+            <a href="https://t.me/your_bot_username" class="btn-telegram" target="_blank">
                 <i class="fab fa-telegram-plane"></i>
                 OPEN TELEGRAM BOT
             </a>
@@ -1733,8 +1858,8 @@ if __name__ == "__main__":
     print(f"🌐 Web Interface: http://0.0.0.0:{PORT}")
     print(f"📝 Log File: {os.path.join(BASE_DIR, 'logs', LOG_FILE)}")
 
-    if not BOT_TOKEN:
-        print("❌ ERROR: BOT_TOKEN environment variable not set!")
+    if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+        print("❌ ERROR: Please set your BOT_TOKEN in environment variables!")
         exit(1)
 
     if not MAIN_ADMIN_ID:
@@ -1744,30 +1869,17 @@ if __name__ == "__main__":
     # Load saved data
     load_data()
 
-    # Verify psutil
-    try:
-        import psutil
-        print("✅ psutil loaded successfully")
-    except ImportError:
-        print("⚠️ psutil not installed. Run: pip install psutil")
-
     # ========== FLASK SERVER ==========
     def run_flask():
         try:
             print(f"🚀 Starting Flask server on port {PORT}...")
-            try:
-                from waitress import serve
-                print("📦 Using Waitress production server")
-                serve(app, host="0.0.0.0", port=PORT, threads=4)
-            except ImportError:
-                print("📦 Using Flask development server")
-                app.run(
-                    host="0.0.0.0",
-                    port=PORT,
-                    debug=False,
-                    use_reloader=False,
-                    threaded=True
-                )
+            app.run(
+                host="0.0.0.0",
+                port=PORT,
+                debug=False,
+                use_reloader=False,
+                threaded=True
+            )
         except Exception as e:
             logger.error(f"⚠️ Flask server error: {e}")
             time.sleep(5)
