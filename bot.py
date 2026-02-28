@@ -354,27 +354,29 @@ def start(m):
     # Get system stats
     stats = get_system_stats()
     
-    welcome_msg = f"""
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-      🤖 𝚃𝙷𝙰𝚁𝙼𝚄𝚇 𝙱𝙾𝚃 𝙿𝚁𝙾 𝚅𝟻.𝟶 🖥️
-━━━━━━━━━━━━━━━━━━━━━━━━━━
+    welcome_msg = f"""  
+       𝗧𝗛𝗔𝗥𝗠𝗨𝗫 𝗕𝗢𝗧 v5
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 
-👋 Hello, {first_name}!
+👋 𝗛𝗘𝗟𝗟𝗢, {first_name}
 
-📊 𝗦𝗬𝗦𝗧𝗘𝗠 𝗦𝗧𝗔𝗧𝗨𝗦
-──────────────────
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        📊 𝗦𝗬𝗦𝗧𝗘𝗠 𝗦𝗧𝗔𝗧𝗨𝗦
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🖥️  CPU    : {stats['cpu_bar']}  {stats['cpu']:.1f}%
 💾  Memory : {stats['memory_bar']}  {stats['memory']:.1f}%
 💿  Disk   : {stats['disk_bar']}  {stats['disk']:.1f}%
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 𝗔𝗩𝗔𝗜𝗟𝗔𝗕𝗟𝗘 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦:
-• Type any Linux command directly
-• Use buttons below for quick commands
-• /nano filename - Edit files in browser
-• /help - Show help
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+        ░▒▓█ 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 █▓▒░
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-━━━━━━━━━━━━━━━━━━━━━━━━━
+❯ [ 💻 ] 𝙳𝙸𝚁𝙴𝙲𝚃 𝚃𝙴𝚁𝙼𝚄𝚇 𝙴𝚇𝙴𝙲𝚄𝚃𝙸𝙾𝙽
+❯ [ ⚡ ] 𝚀𝚄𝙸𝙲𝙺 𝙰𝙲𝚃𝙸𝙾𝙽 𝙱𝚄𝚃𝚃𝙾𝙽𝚂
+❯ [ 📝 ] /nano {filename}  
+❯ [ 📚 ] /help → 𝙷𝙴𝙻𝙿 𝙼𝙴𝙽𝚄
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 """
     bot.send_message(cid, welcome_msg, 
                      parse_mode="Markdown", 
@@ -388,31 +390,38 @@ def help_cmd(m):
     username = m.from_user.username or "Unknown"
     
     help_msg = """
-📚 *HELP & COMMANDS*
-━━━━━━━━━━━━━━━━━━━━━━
+    📚 𝗛𝗘𝗟𝗣 & 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 
-🖥️ *BASIC COMMANDS*
-• Type any Linux command directly
-• Use buttons for quick commands
-• /start - Restart bot
-• /help - Show this help
 
-📝 *FILE EDITING*
-• /nano filename - Edit files in browser
-• View files in your private directory
-• Save changes from web interface
+        🖥️ 𝗕𝗔𝗦𝗜𝗖 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• 𝚃𝚈𝙿𝙴 𝙰𝙽𝚈 𝙻𝙸𝙽𝚄𝚇 𝙲𝙾𝙼𝙼𝙰𝙽𝙳 𝙳𝙸𝚁𝙴𝙲𝚃𝙻𝚈
+• 𝚄𝚂𝙴 𝙱𝚄𝚃𝚃𝙾𝙽𝚂 𝙵𝙾𝚁 𝚀𝚄𝙸𝙲𝙺 𝙲𝙾𝙼𝙼𝙰𝙽𝙳𝚂
+• /start - 𝚁𝙴𝚂𝚃𝙰𝚁𝚃 𝙱𝙾𝚃
+• /help - 𝚂𝙷𝙾𝚆 𝚃𝙷𝙸𝚂 𝙷𝙴𝙻𝙿
 
-📊 *SYSTEM INFO*
-• system stats - View system status
-• my files - List your files
-• my info - Your user info
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          📝 𝗙𝗜𝗟𝗘 𝗘𝗗𝗜𝗧𝗜𝗡𝗚
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• /nano {filename} - 𝙴𝙳𝙸𝚃 𝙵𝙸𝙻𝙴𝚂 𝙸𝙽 𝙱𝚁𝙾𝚆𝚂𝙴𝚁
+• 𝚅𝙸𝙴𝚆 𝙵𝙸𝙻𝙴𝚂 𝙸𝙽 𝚈𝙾𝚄𝚁 𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝙳𝙸𝚁𝙴𝙲𝚃𝙾𝚁𝚈
+• 𝚂𝙰𝚅𝙴 𝙲𝙷𝙰𝙽𝙶𝙴𝚂 𝙵𝚁𝙾𝙼 𝚆𝙴𝙱 𝙸𝙽𝚃𝙴𝚁𝙵𝙰𝙲𝙴
 
-👑 *ADMIN COMMANDS* (Admins only)
-• /admin - Open admin panel
-• /status - Detailed system status
-• /sessions - View active sessions
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         📊 𝗦𝗬𝗦𝗧𝗘𝗠 𝗜𝗡𝗙𝗢
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• 𝚂𝚈𝚂𝚃𝙴𝙼 𝚂𝚃𝙰𝚃𝚂 - 𝚅𝙸𝙴𝚆 𝚂𝚈𝚂𝚃𝙴𝙼 𝚂𝚃𝙰𝚃𝚄𝚂
+• 𝙼𝚈 𝙵𝙸𝙻𝙴𝚂 - 𝙻𝙸𝚂𝚃 𝚈𝙾𝚄𝚁 𝙵𝙸𝙻𝙴𝚂
+• 𝙼𝚈 𝙸𝙽𝙵𝙾 - 𝚈𝙾𝚄𝚁 𝚄𝚂𝙴𝚁 𝙸𝙽𝙵𝙾
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+        👑 ADMIN COMMANDS
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+• /admin - 𝙾𝙿𝙴𝙽 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻
+• /status - 𝙳𝙴𝚃𝙰𝙸𝙻𝙴𝙳 𝚂𝚈𝚂𝚃𝙴𝙼 𝚂𝚃𝙰𝚃𝚄𝚂
+• /sessions - 𝚅𝙸𝙴𝚆 𝙰𝙲𝚃𝙸𝚅𝙴 𝚂𝙴𝚂𝚂𝙸𝙾𝙽𝚂
 
-━━━━━━━━━━━━━━━━━━━━━━
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 """
     bot.send_message(cid, help_msg, parse_mode="Markdown")
 
@@ -441,29 +450,28 @@ def status_cmd(m):
     total_users = len(set(active_sessions.keys()) | set(processes.keys()))
     
     status_msg = f"""
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 𝗦𝗬𝗦𝗧𝗘𝗠 𝗦𝗧𝗔𝗧𝗨𝗦 𝗥𝗘𝗣𝗢𝗥𝗧 📊
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 📊 𝗦𝗬𝗦𝗧𝗘𝗠 𝗦𝗧𝗔𝗧𝗨𝗦 𝗥𝗘𝗣𝗢𝗥𝗧 📊
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 
 🖥️ 𝗛𝗔𝗥𝗗𝗪𝗔𝗥𝗘 𝗠𝗢𝗡𝗜𝗧𝗢𝗥
 ──────────────────
-CPU    : {stats['cpu_bar']}  {stats['cpu']:.1f}%
-Memory : {stats['memory_bar']}  {stats['memory']:.1f}%
-Disk   : {stats['disk_bar']}  {stats['disk']:.1f}%
+𝗖𝗣𝗨    : {stats['cpu_bar']}  {stats['cpu']:.1f}%
+𝗠𝗘𝗠𝗢𝗥𝗬 : {stats['memory_bar']}  {stats['memory']:.1f}%
+𝗗𝗜𝗦𝗞   : {stats['disk_bar']}  {stats['disk']:.1f}%
 
-⏱️  Uptime    : {stats['uptime']}
-🔄  Processes : {stats['processes']}
-🚀  Boot Time : {stats['boot_time']}
+ [ ⏱️] 𝗨𝗣𝗧𝗜𝗠𝗘        : {stats['uptime']}
+ [🔄] 𝗣𝗥𝗢𝗖𝗘𝗦𝗦𝗘𝗦     : {stats['processes']}
+ [🚀] 𝗕𝗢𝗢𝗧 𝗧𝗜𝗠𝗘      : {stats['boot_time']}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 👥 𝗨𝗦𝗘𝗥 𝗦𝗧𝗔𝗧𝗜𝗦𝗧𝗜𝗖𝗦
 ──────────────────
-• Total Admins      : {len(admins)}
-• Active Users      : {total_users}
-• Active Sessions   : {total_sessions}
-• Running Processes : `{total_processes}`
+• 𝗧𝗢𝗧𝗔𝗟 𝗔𝗗𝗠𝗜𝗡𝗦        : {len(admins)}
+• 𝗔𝗖𝗧𝗜𝗩𝗘 𝗨𝗦𝗘𝗥𝗦        : {total_users}
+• 𝗔𝗖𝗧𝗜𝗩𝗘 𝗦𝗘𝗦𝗦𝗜𝗢𝗡𝗦     : {total_sessions}
+• 𝗥𝗨𝗡𝗡𝗜𝗡𝗚 𝗣𝗥𝗢𝗖𝗘𝗦𝗦𝗘𝗦   : `{total_processes}`
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 """
     
     bot.send_message(cid, status_msg, parse_mode="Markdown")
@@ -654,15 +662,17 @@ def shell(m):
         elif text == "📊 system stats":
             stats = get_system_stats()
             stats_msg = f"""
-📊 *SYSTEM STATISTICS*
-━━━━━━━━━━━━━━━━━━━━━━
-🖥️  CPU    : {stats['cpu_bar']}  {stats['cpu']:.1f}%
-💾  Memory : {stats['memory_bar']}  {stats['memory']:.1f}%
-💿  Disk   : {stats['disk_bar']}  {stats['disk']:.1f}%
+      📊 𝗦𝗬𝗦𝗧𝗘𝗠 𝗦𝗧𝗔𝗧𝗜𝗦𝗧𝗜𝗖𝗦 📊
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 
-⏱️  Uptime    : {stats['uptime']}
-🔄  Processes : {stats['processes']}
-━━━━━━━━━━━━━━━━━━━━━━
+🖥️  𝗖𝗣𝗨        : {stats['cpu_bar']}  {stats['cpu']:.1f}%
+💾  𝗠𝗘𝗠𝗢𝗥𝗬     : {stats['memory_bar']}  {stats['memory']:.1f}%
+💿  𝗗𝗜𝗦𝗞       : {stats['disk_bar']}  {stats['disk']:.1f}%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏱️  𝗨𝗣𝗧𝗜𝗠𝗘      : {stats['uptime']}
+🔄  𝗣𝗥𝗢𝗖𝗘𝗦𝗦𝗘𝗦   : {stats['processes']}
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 """
             bot.send_message(cid, stats_msg, parse_mode="Markdown")
             return
@@ -748,24 +758,25 @@ def show_performance(cid):
     processes_list.sort(key=lambda x: x['cpu_percent'], reverse=True)
     
     perf_msg = f"""
-📈 *PERFORMANCE METRICS*
-━━━━━━━━━━━━━━━━━━━━━━
+    📈 𝗣𝗘𝗥𝗙𝗢𝗥𝗠𝗔𝗡𝗖𝗘 𝗠𝗘𝗧𝗥𝗜𝗖𝗦 📈
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+🖥️  𝗖𝗣𝗨
+• 𝗨𝗦𝗔𝗚𝗘        : {stats['cpu']:.1f}%
+• 𝗖𝗢𝗥𝗘𝗦        : {psutil.cpu_count()}
 
-🖥️ *CPU*
-• Usage: {stats['cpu']:.1f}%
-• Cores: {psutil.cpu_count()}
+💾  𝗠𝗘𝗠𝗢𝗥𝗬
+• 𝗧𝗢𝗧𝗔𝗟        : {psutil.virtual_memory().total / (1024**3):.1f} GB
+• 𝗨𝗦𝗘𝗗         : {psutil.virtual_memory().used / (1024**3):.1f} GB
+• 𝗔𝗩𝗔𝗜𝗟𝗔𝗕𝗟𝗘    : {psutil.virtual_memory().available / (1024**3):.1f} GB
 
-💾 *MEMORY*
-• Total: {psutil.virtual_memory().total / (1024**3):.1f} GB
-• Used: {psutil.virtual_memory().used / (1024**3):.1f} GB
-• Available: {psutil.virtual_memory().available / (1024**3):.1f} GB
+💿  𝗗𝗜𝗦𝗞
+• 𝗧𝗢𝗧𝗔𝗟        : {psutil.disk_usage('/').total / (1024**3):.1f} GB
+• 𝗨𝗦𝗘𝗗         : {psutil.disk_usage('/').used / (1024**3):.1f} GB
+• 𝗙𝗥𝗘𝗘         : {psutil.disk_usage('/').free / (1024**3):.1f} GB
 
-💿 *DISK*
-• Total: {psutil.disk_usage('/').total / (1024**3):.1f} GB
-• Used: {psutil.disk_usage('/').used / (1024**3):.1f} GB
-• Free: {psutil.disk_usage('/').free / (1024**3):.1f} GB
-
-🔝 *TOP PROCESSES*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         🔝 𝗧𝗢𝗣 𝗣𝗥𝗢𝗖𝗘𝗦𝗦𝗘𝗦
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
     
     for proc in processes_list[:5]:
@@ -1509,7 +1520,7 @@ def home():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Termux Bot Pro | System Monitor</title>
+    <title>THARMUX BOT v5| System Monitor</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {{
@@ -1737,7 +1748,7 @@ def home():
                 <div class="bot-icon">
                     <i class="fas fa-robot"></i>
                 </div>
-                <h1>Termux Bot Pro</h1>
+                <h1>THARMUX BOT v5/h1>
                 <div class="status-badge">
                     <i class="fas fa-circle" style="color: #3fb950; font-size: 10px;"></i>
                     SYSTEM ONLINE
@@ -1851,7 +1862,7 @@ def api_stats():
 
 # ========== MAIN ==========
 if __name__ == "__main__":
-    print("🤖 Starting Termux Bot Pro v5.0...")
+    print("🤖 Starting THARMUX v5.0...")
     print(f"👑 Main Admin: {MAIN_ADMIN_ID}")
     print(f"📁 Base Directory: {BASE_DIR}")
     print(f"📁 User Data Directory: {USER_DATA_DIR}")
