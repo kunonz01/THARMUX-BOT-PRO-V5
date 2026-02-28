@@ -355,9 +355,9 @@ def start(m):
     stats = get_system_stats()
     
     welcome_msg = f"""
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━
       🤖 𝚃𝙷𝙰𝚁𝙼𝚄𝚇 𝙱𝙾𝚃 𝙿𝚁𝙾 𝚅𝟻.𝟶 🖥️
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 👋 Hello, {first_name}!
 
@@ -367,14 +367,14 @@ def start(m):
 💾  Memory : {stats['memory_bar']}  {stats['memory']:.1f}%
 💿  Disk   : {stats['disk_bar']}  {stats['disk']:.1f}%
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 📌 𝗔𝗩𝗔𝗜𝗟𝗔𝗕𝗟𝗘 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦:
 • Type any Linux command directly
 • Use buttons below for quick commands
 • /nano filename - Edit files in browser
 • /help - Show help
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━
 """
     bot.send_message(cid, welcome_msg, 
                      parse_mode="Markdown", 
